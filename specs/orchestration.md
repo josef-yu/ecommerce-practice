@@ -296,6 +296,18 @@ CI_RUNTIME_VERSION=21    # optional; sensible default per runtime
 
 The workflow installs the matching toolchain before calling `make test`. Frontends default to Node 20 unless overridden.
 
+### Python uses Poetry
+
+**Poetry is the default Python package manager.** For any stack with `CI_RUNTIME=python`, the workflow installs Poetry (`pipx install poetry`) before `actions/setup-python`, and enables Poetry's dependency cache keyed on the stack's `poetry.lock` (`<type>/<stack>/poetry.lock`). Python defaults to 3.13. A Python stack must therefore commit a `poetry.lock`, and its `make test` should install and run through Poetry:
+
+```makefile
+# backend/django-drf/Makefile
+test:
+	poetry install --no-interaction
+	poetry run python manage.py migrate
+	poetry run python manage.py test
+```
+
 ### What `make test` must do
 
-Because each stack owns its `test` target, that target is responsible for preparing its own state: run migrations, **seed the platform merchant**, and stub external services (payment, OAuth, carrier webhooks) per [test-suite.md](test-suite.md). It must exit non-zero on any failure. The infra (Postgres/Redis/Mailpit/MinIO) is already up and reachable on `localhost` at the ports from `.env`.
+Because each stack owns its `test` target, that target is responsible for installing its own dependencies (e.g. `poetry install`, `npm ci`) and preparing its own state: run migrations, **seed the platform merchant**, and stub external services (payment, OAuth, carrier webhooks) per [test-suite.md](test-suite.md). It must exit non-zero on any failure. The infra (Postgres/Redis/Mailpit/MinIO) is already up and reachable on `localhost` at the ports from `.env`.

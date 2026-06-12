@@ -129,10 +129,15 @@ jobs:
         if: matrix.runtime == 'node'
         with:
           node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+      - name: Install Poetry (default Python package manager)
+        if: matrix.runtime == 'python'
+        run: pipx install poetry
       - uses: actions/setup-python@v5
         if: matrix.runtime == 'python'
         with:
-          python-version: ${{ matrix.version != '' && matrix.version || '3.12' }}
+          python-version: ${{ matrix.version != '' && matrix.version || '3.13' }}
+          cache: poetry
+          cache-dependency-path: ${{ github.job }}/${{ matrix.name }}/poetry.lock
       - uses: actions/setup-java@v4
         if: matrix.runtime == 'java'
         with:
@@ -182,10 +187,15 @@ jobs:
         if: matrix.runtime == 'node'
         with:
           node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+      - name: Install Poetry (default Python package manager)
+        if: matrix.runtime == 'python'
+        run: pipx install poetry
       - uses: actions/setup-python@v5
         if: matrix.runtime == 'python'
         with:
-          python-version: ${{ matrix.version != '' && matrix.version || '3.12' }}
+          python-version: ${{ matrix.version != '' && matrix.version || '3.13' }}
+          cache: poetry
+          cache-dependency-path: ${{ github.job }}/${{ matrix.name }}/poetry.lock
       - uses: actions/setup-java@v4
         if: matrix.runtime == 'java'
         with:
