@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+reviews:
+  profile: "chill"
+  paths:
+    include:
+      - "backend/**"
+      - "frontend/**"
+    exclude:
+      - "specs/**"
+      - "Makefile"
+      - "docker-compose.yml"
+  
+  path_instructions:
+    - path: "backend/**"
+      instructions: |
+        You are enforcing strict backend patterns for an e-commerce microservice:
+        1. Ensure all prices and financial values use specialized decimal formats (or primitive integer cents) instead of standard floating-point variables to prevent rounding bugs.
+        2. Ensure entity identifiers utilize UUIDv4 properties instead of auto-incrementing database integers.
+        3. Enforce that all timestamps explicitly use ISO 8601 formatting.
+        4. Validate that API route patterns systematically follow the `/api/v1/...` namespace.
+        5. Verify that error responses conform to a unified JSON body format (containing message, error code, and status details).
+
+    - path: "frontend/**"
+      instructions: |
+        You are validating an e-commerce user interface layer:
+        1. Flag any hardcoded API endpoint strings; all requests must route relative to a dynamic base configuration environment variable.
+        2. Ensure all UI components natively support aria-labels and clean responsive wrappers.
+        3. Double check that state management components properly validate price metrics as strict positive numbers before initializing checkout hooks.

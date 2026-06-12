@@ -44,7 +44,7 @@ cp .env.example .env                     # then fill in values
 make infra                               # start Postgres, Redis, Mailpit, MinIO
 make pair FRONT=react BACK=django-drf    # run a frontend + backend pair
 make fullstack STACK=nextjs              # or a self-contained fullstack impl
-make test BACK=django-drf                # run a backend's test suite
+make test BACK=django-drf                # test a backend (or FRONT= / STACK=)
 make help                                # everything else
 ```
 

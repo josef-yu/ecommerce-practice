@@ -6,7 +6,7 @@
 #   make infra-down                          stop shared services
 #   make pair FRONT=angular BACK=spring      run a frontend + backend pair
 #   make fullstack STACK=nextjs              run a standalone fullstack impl
-#   make test BACK=spring                    run backend test suite
+#   make test BACK=spring                    test a backend  (or FRONT= / STACK=)
 #   make logs                                tail infra logs
 # ---------------------------------------------------------------
 
@@ -88,11 +88,39 @@ fullstack: _require-env _require-fullstack-stack
 	$(MAKE) --no-print-directory -C fullstack/$(STACK) dev
 
 # ---------------------------------------------------------------
-# Tests: run the test suite for a backend or fullstack stack
+# Tests: one command, typed by keyword like `pair`.
+#   make test BACK=<stack>     test a backend
+#   make test FRONT=<stack>    test a frontend
+#   make test STACK=<stack>    test a fullstack
+# Exactly one keyword must be given. The stack's own `make test` runs
+# with the same vars injected as `dev`, so CI and local behave identically.
+# Only command-line keywords count — the FRONT/BACK/STACK defaults are ignored.
 # ---------------------------------------------------------------
 
 test: _require-env
-	$(MAKE) --no-print-directory -C backend/$(BACK) test
+	@b='$(if $(filter command line,$(origin BACK)),$(BACK))'; \
+	f='$(if $(filter command line,$(origin FRONT)),$(FRONT))'; \
+	s='$(if $(filter command line,$(origin STACK)),$(STACK))'; \
+	n=0; [ -n "$$b" ] && n=$$((n+1)); [ -n "$$f" ] && n=$$((n+1)); [ -n "$$s" ] && n=$$((n+1)); \
+	if [ $$n -ne 1 ]; then \
+		echo ""; \
+		echo "  Usage: make test BACK=<stack> | FRONT=<stack> | STACK=<stack>"; \
+		echo "  Pass exactly one."; \
+		echo ""; \
+		exit 1; \
+	fi; \
+	if [ -n "$$b" ]; then \
+		[ -f backend/$$b/stack.env ] || { echo "  Error: backend/$$b/stack.env not found."; exit 1; }; \
+		$(MAKE) --no-print-directory -C backend/$$b test; \
+	elif [ -n "$$f" ]; then \
+		[ -f frontend/$$f/stack.env ] || { echo "  Error: frontend/$$f/stack.env not found."; exit 1; }; \
+		API_URL=$${API_URL:-http://localhost:8000/api/v1} \
+		WS_URL=$${WS_URL:-ws://localhost:8000/ws} \
+		$(MAKE) --no-print-directory -C frontend/$$f test; \
+	else \
+		[ -f fullstack/$$s/stack.env ] || { echo "  Error: fullstack/$$s/stack.env not found."; exit 1; }; \
+		$(MAKE) --no-print-directory -C fullstack/$$s test; \
+	fi
 
 # ---------------------------------------------------------------
 # Guards
@@ -143,7 +171,7 @@ help:
 	@echo "  make infra-down                         Stop shared services"
 	@echo "  make pair FRONT=angular BACK=spring     Run a frontend + backend pair"
 	@echo "  make fullstack STACK=nextjs             Run a standalone fullstack implementation"
-	@echo "  make test BACK=spring                   Run the backend test suite"
+	@echo "  make test BACK=spring                   Test a backend (or FRONT= / STACK=)"
 	@echo "  make logs                               Tail infra container logs"
 	@echo ""
 	@echo "Available backends:"

@@ -225,12 +225,12 @@ dev:
 ## Adding a new stack
 
 1. Create the folder: `backend/<stack>/`, `frontend/<stack>/`, or `fullstack/<stack>/`.
-2. Create `stack.env` declaring the port.
+2. Create `stack.env` declaring the port (and optionally the CI runtime — see [CI](#ci)).
 3. Create a `Makefile` with `dev` and `test` targets that read from environment variables.
 4. Run `make infra` once (if not already running).
 5. Run `make pair FRONT=<x> BACK=<stack>` or `make fullstack STACK=<stack>`.
 
-No changes to the root `Makefile`, `docker-compose.yml`, or `.env.example` are needed.
+No changes to the root `Makefile`, `docker-compose.yml`, `.env.example`, or the CI workflow are needed — CI discovers the new stack automatically.
 
 ---
 
@@ -253,3 +253,49 @@ Both share the same Postgres and Redis instances. Use a separate database name p
 BACKEND_PORT=8080
 POSTGRES_DB_OVERRIDE=ecommerce_spring   # optional; the stack's Makefile uses this if set
 ```
+
+---
+
+## CI
+
+The pipeline ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs each stack's own `make test`. It does **not** test every frontend×backend pair — the spec is the contract, so each backend/fullstack is tested against the contract independently, and frontends are tested on their own (live FE↔BE integration is a nightly job, not per-PR).
+
+### What runs when
+
+| Trigger | What is tested |
+|---|---|
+| PR push | Only stacks whose own folder changed (fast feedback) |
+| `specs/**` changed | **All** stacks — the shared contract moved |
+| Push to `main` | **All** stacks |
+| Nightly (06:00 UTC) | **All** stacks |
+| Manual (`workflow_dispatch`) | **All** stacks |
+
+A change to the root `Makefile`, `docker-compose.yml`, or `.env.example` also forces the full matrix.
+
+### How it works
+
+1. A `changes` job diffs the commit range, decides the selection, and discovers every folder under `backend/`, `frontend/`, `fullstack/` that contains a `stack.env`. It emits a dynamic matrix per stack type.
+2. `backend` and `fullstack` jobs boot the shared infra (`docker compose up -d --wait postgres redis`, plus mailpit/minio) and run `make test BACK=<stack>` / `make test STACK=<stack>`.
+3. The `frontend` job runs `make test FRONT=<stack>` with no database — unit/component tests only.
+
+A single `test` command is typed by keyword, the same way `pair` is: `make test BACK=<stack>`, `make test FRONT=<stack>`, or `make test STACK=<stack>` — exactly one.
+4. `fail-fast: false` — one red stack never cancels the others.
+
+CI reuses the exact same env-injection path as local development: it copies `.env.example` to `.env`, brings up the documented infra, and lets the root `Makefile` inject the primitives into each stack's `make test`. There is no CI-specific configuration inside a stack.
+
+### Optional `stack.env` CI keys
+
+A stack runs natively on the runner, so CI needs to know which language toolchain to install. Declare it in `stack.env` (optional — omit to self-provision):
+
+```
+# backend/spring/stack.env
+BACKEND_PORT=8080
+CI_RUNTIME=java          # node | python | java | ruby | go
+CI_RUNTIME_VERSION=21    # optional; sensible default per runtime
+```
+
+The workflow installs the matching toolchain before calling `make test`. Frontends default to Node 20 unless overridden.
+
+### What `make test` must do
+
+Because each stack owns its `test` target, that target is responsible for preparing its own state: run migrations, **seed the platform merchant**, and stub external services (payment, OAuth, carrier webhooks) per [test-suite.md](test-suite.md). It must exit non-zero on any failure. The infra (Postgres/Redis/Mailpit/MinIO) is already up and reachable on `localhost` at the ports from `.env`.

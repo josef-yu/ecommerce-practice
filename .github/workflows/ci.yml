@@ -1,0 +1,244 @@
+name: CI
+
+# Strategy (see specs/orchestration.md → "## CI"):
+#   - PR pushes:        test only the stacks whose own folder changed (fast feedback)
+#   - specs/** changed: test ALL stacks (the shared contract moved)
+#   - push to main:     test ALL stacks
+#   - nightly schedule: test ALL stacks
+#   - frontends:        unit/component tests only here; live FE↔BE integration is nightly
+#
+# Per-stack runtime is read from each stack's stack.env:
+#   CI_RUNTIME=node|python|java|ruby|go   (optional; omit to self-provision)
+#   CI_RUNTIME_VERSION=20                  (optional; sensible default per runtime)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC nightly — full matrix
+  workflow_dispatch: {} # manual full-matrix run
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # Discover which stacks to test, and emit a dynamic matrix.
+  # ---------------------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.select.outputs.backend }}
+      frontend: ${{ steps.select.outputs.frontend }}
+      fullstack: ${{ steps.select.outputs.fullstack }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need history to diff base..head
+
+      - id: select
+        name: Select stacks
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # ALL = test every stack
+          ALL=0
+          [ "$EVENT" = "schedule" ] && ALL=1
+          [ "$EVENT" = "workflow_dispatch" ] && ALL=1
+          [ "$REF" = "refs/heads/main" ] && ALL=1
+
+          # Compute changed files
+          if [ "$EVENT" = "pull_request" ]; then
+            BASE="$PR_BASE"; HEAD="$PR_HEAD"
+          else
+            BASE="$PUSH_BEFORE"; HEAD="$PUSH_AFTER"
+          fi
+          if [ "$ALL" -eq 0 ] && git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
+          else
+            ALL=1; CHANGED=""
+          fi
+
+          # Shared contract / orchestration changes force the full matrix
+          if echo "$CHANGED" | grep -qE '^(specs/|Makefile$|docker-compose\.yml$|\.env\.example$|\.github/workflows/ci\.yml$)'; then
+            ALL=1
+          fi
+
+          emit() {
+            local type="$1"
+            local items=()
+            if [ -d "$type" ]; then
+              for d in "$type"/*/; do
+                [ -f "${d}stack.env" ] || continue
+                local name; name="$(basename "$d")"
+                if [ "$ALL" -eq 1 ] || echo "$CHANGED" | grep -q "^${type}/${name}/"; then
+                  local runtime version
+                  runtime="$(grep -E '^CI_RUNTIME=' "${d}stack.env" | cut -d= -f2 | tr -d '[:space:]' || true)"
+                  version="$(grep -E '^CI_RUNTIME_VERSION=' "${d}stack.env" | cut -d= -f2 | tr -d '[:space:]' || true)"
+                  items+=("$(jq -nc --arg n "$name" --arg r "$runtime" --arg v "$version" \
+                    '{name:$n, runtime:$r, version:$v}')")
+                fi
+              done
+            fi
+            if [ "${#items[@]}" -eq 0 ]; then
+              echo "[]"
+            else
+              printf '%s\n' "${items[@]}" | jq -sc .
+            fi
+          }
+
+          {
+            echo "backend=$(emit backend)"
+            echo "frontend=$(emit frontend)"
+            echo "fullstack=$(emit fullstack)"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Selected (ALL=$ALL):"
+          echo "  backend=$(emit backend)"
+          echo "  frontend=$(emit frontend)"
+          echo "  fullstack=$(emit fullstack)"
+
+  # ---------------------------------------------------------------
+  # Backend contract tests — need the full infra (Postgres/Redis/…).
+  # ---------------------------------------------------------------
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one red stack must not cancel the others
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.backend) }}
+    name: backend / ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: matrix.runtime == 'node'
+        with:
+          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+      - uses: actions/setup-python@v5
+        if: matrix.runtime == 'python'
+        with:
+          python-version: ${{ matrix.version != '' && matrix.version || '3.12' }}
+      - uses: actions/setup-java@v4
+        if: matrix.runtime == 'java'
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.version != '' && matrix.version || '21' }}
+      - uses: ruby/setup-ruby@v1
+        if: matrix.runtime == 'ruby'
+        with:
+          ruby-version: ${{ matrix.version != '' && matrix.version || '3.3' }}
+      - uses: actions/setup-go@v5
+        if: matrix.runtime == 'go'
+        with:
+          go-version: ${{ matrix.version != '' && matrix.version || '1.22' }}
+
+      - name: Start shared infrastructure
+        run: |
+          cp .env.example .env
+          # Wait on the services tests truly need; best-effort start for the rest.
+          docker compose up -d --wait postgres redis
+          docker compose up -d mailpit minio
+
+      - name: Run test suite
+        env:
+          STACK: ${{ matrix.name }}
+        run: make test BACK="$STACK"
+
+      - name: Infra logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+  # ---------------------------------------------------------------
+  # Fullstack contract tests — also need infra.
+  # ---------------------------------------------------------------
+  fullstack:
+    needs: changes
+    if: needs.changes.outputs.fullstack != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.fullstack) }}
+    name: fullstack / ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: matrix.runtime == 'node'
+        with:
+          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+      - uses: actions/setup-python@v5
+        if: matrix.runtime == 'python'
+        with:
+          python-version: ${{ matrix.version != '' && matrix.version || '3.12' }}
+      - uses: actions/setup-java@v4
+        if: matrix.runtime == 'java'
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.version != '' && matrix.version || '21' }}
+      - uses: ruby/setup-ruby@v1
+        if: matrix.runtime == 'ruby'
+        with:
+          ruby-version: ${{ matrix.version != '' && matrix.version || '3.3' }}
+      - uses: actions/setup-go@v5
+        if: matrix.runtime == 'go'
+        with:
+          go-version: ${{ matrix.version != '' && matrix.version || '1.22' }}
+
+      - name: Start shared infrastructure
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait postgres redis
+          docker compose up -d mailpit minio
+
+      - name: Run test suite
+        env:
+          STACK: ${{ matrix.name }}
+        run: make test STACK="$STACK"
+
+      - name: Infra logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+  # ---------------------------------------------------------------
+  # Frontend tests — unit/component only (no DB). Live FE↔BE
+  # integration against a reference backend runs in the nightly
+  # `integration` workflow, not on every PR.
+  # ---------------------------------------------------------------
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.frontend) }}
+    name: frontend / ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+
+      - name: Run test suite
+        env:
+          STACK: ${{ matrix.name }}
+        run: |
+          cp .env.example .env
+          make test FRONT="$STACK"

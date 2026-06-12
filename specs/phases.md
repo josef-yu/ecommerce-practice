@@ -43,7 +43,7 @@ OAuth (Phase 9) and the Frontend (Phase 10) are largely independent and can be w
 - Wire up a health-check endpoint: `GET /health` → `200 { "ok": true }`.
 - Set up a local email trap (already running via Mailpit in `make infra`) and confirm the app can send to it.
 - Set up the test runner; confirm a trivial passing test executes.
-- Basic CI: run `make test BACK=<stack>` on every push.
+- Basic CI: run `make test BACK=<stack>` (or `FRONT=` / `STACK=`) on every push.
 - Smoke-test the pairing: `make pair FRONT=<x> BACK=<stack>` — the frontend should reach the backend's `/health` endpoint without any manual URL configuration.
 
 ### Done when
