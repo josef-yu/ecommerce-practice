@@ -9,6 +9,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -24,8 +25,11 @@ SECRET_KEY = "django-insecure-v=f19wm4$y0(c$c&55b#_a*i52bm*b+$!_1+m-ek6y#p%dwcy(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS: list[str] = []
+ALLOWED_HOSTS: list[str] = [os.environ["FRONTEND_URL"]]
 
+CORS_ALLOWED_ORIGINS = [os.environ["FRONTEND_URL"]]
+
+CSRF_TRUSTED_ORIGINS = [os.environ["FRONTEND_URL"]]
 
 # Application definition
 
@@ -37,11 +41,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "import_export",
-    "user"
+    "corsheader",
+    "user",
 ]
 
 MIDDLEWARE = [
+    "ecommerce.middleware.HealthCheckMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -76,8 +82,12 @@ WSGI_APPLICATION = "ecommerce.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ["POSTGRES_DB"],
+        "USER": os.environ["POSTGRES_USER"],
+        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+        "HOST": "127.0.0.1",  # Or 'localhost' for local development
+        "PORT": os.environ["POSTGRES_PORT"],
     }
 }
 
@@ -123,3 +133,16 @@ STATIC_ROOT = "./static_root"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Tests
+TEST_RUNNER = "ecommerce.runner.GlobalTestRunner"
+
+# Email
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ["SMTP_HOST"]
+EMAIL_PORT = os.environ["SMTP_PORT"]
+
+EMAIL_HOST_USER = ""
+EMAIL_HOST_PASSWORD = ""
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = False
