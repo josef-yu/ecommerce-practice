@@ -1,5 +1,7 @@
 # Ecommerce Practice
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/josef-yu/ecommerce-practice?utm_source=oss&utm_medium=github&utm_campaign=josef-yu%2Fecommerce-practice&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 This repository contains implementation practice for an ecommerce project. Claude wrote the specs and I implement it. This is to maintain my technical skills in the AI era of software development as it also helps in reviewing AI generated code.
 
 ## What gets built
@@ -33,8 +35,8 @@ docker-compose.yml   shared infra: Postgres, Redis, Mailpit, MinIO
 
 ### Implementations
 
-| Stack | Type | Port | Status |
-|---|---|---|---|
+| Stack                                    | Type                   | Port | Status                 |
+| ---------------------------------------- | ---------------------- | ---- | ---------------------- |
 | [backend/django-drf](backend/django-drf) | Backend (Django + DRF) | 8000 | Phase 0: project setup |
 
 ## Running
