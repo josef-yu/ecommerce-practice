@@ -9,7 +9,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,8 +27,14 @@ SECRET_KEY = "django-insecure-v=f19wm4$y0(c$c&55b#_a*i52bm*b+$!_1+m-ek6y#p%dwcy(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS: list[str] = []
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+BACKEND_URL = f"http://localhost:{os.environ.get('BACKEND_PORT', '8000')}"
 
+ALLOWED_HOSTS: list[str] = [BACKEND_URL]
+
+CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
+
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
 
 # Application definition
 
@@ -37,11 +46,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "import_export",
-    "user"
+    "corsheaders",
+    "user",
 ]
 
 MIDDLEWARE = [
+    "ecommerce.middleware.HealthCheckMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -76,8 +87,12 @@ WSGI_APPLICATION = "ecommerce.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ["POSTGRES_DB"],
+        "USER": os.environ["POSTGRES_USER"],
+        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+        "HOST": os.environ["POSTGRES_HOST"],
+        "PORT": os.environ["POSTGRES_PORT"],
     }
 }
 
@@ -123,3 +138,23 @@ STATIC_ROOT = "./static_root"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Tests
+TEST_RUNNER = "ecommerce.runner.GlobalTestRunner"
+
+# Email
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = os.environ["SMTP_HOST"]
+EMAIL_PORT = os.environ["SMTP_PORT"]
+is_host_local = EMAIL_HOST in ["localhost", "127.0.0.1"]
+is_port_local = EMAIL_PORT in ["1025", "1026"]
+
+if os.environ.get("PHASE", "0") == "0" and not (is_host_local and is_port_local):
+    raise ImproperlyConfigured("Phase 0 should only be pointing to mailtrap.")
+
+
+EMAIL_HOST_USER = ""
+EMAIL_HOST_PASSWORD = ""
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = False

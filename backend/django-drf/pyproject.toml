@@ -8,10 +8,12 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
-    "django (>=5.2.7,<6.0.0)",
-    "djangorestframework (>=3.16.1,<4.0.0)",
-    "django-filter (>=25.2,<26.0)",
-    "django-import-export (>=4.3.14,<5.0.0)"
+    "django (==5.2.15)",
+    "djangorestframework (==3.17.1)",
+    "django-filter (==25.2)",
+    "psycopg (==3.3.4)",
+    "django-storages[s3] (==1.14.6)",
+    "django-cors-headers (==4.9.0)"
 ]
 
 [project.scripts]
@@ -107,7 +109,7 @@ select = [
     "Q",   # flake8-quotes
     "SIM", # flake8-simplify
     "T10", # flake8-print
-    "TCH", # flake8-type-checking
+    "TC",  # flake8-type-checking
     "TRY", # tryceratops
     "UP",  # pyupgrade
 ]
@@ -125,7 +127,8 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "ANN"]
+# Django's TestCase uses unittest-style assertions (self.assertEqual / assertRaises).
+"tests/*" = ["D", "ANN", "PT009", "PT027"]
 "__init__.py" = ["D"]
 
 [tool.pylint.'MESSAGES CONTROL']

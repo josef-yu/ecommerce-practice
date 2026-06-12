@@ -4,7 +4,6 @@
 .PHONY: dev test
 
 dev:
-	DATABASE_URL=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB) \
 	REDIS_URL=redis://localhost:$(REDIS_PORT) \
 	SMTP_HOST=localhost \
 	STORAGE_ENDPOINT=http://localhost:$(MINIO_PORT) \
@@ -13,7 +12,7 @@ dev:
 	poetry run python manage.py runserver 0.0.0.0:$(BACKEND_PORT)
 
 test:
-	DATABASE_URL=postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB) \
+	poetry install --no-interaction
 	REDIS_URL=redis://localhost:$(REDIS_PORT) \
 	SMTP_HOST=localhost \
 	poetry run python manage.py test
