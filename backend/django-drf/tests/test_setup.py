@@ -8,6 +8,7 @@ class HealthCheckTest(TestCase):
         response = self.client.get("/health")
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
 
 
 class EmailIntegrationTest(TestCase):

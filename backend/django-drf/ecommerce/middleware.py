@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from http import HTTPStatus
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 
 class HealthCheckMiddleware:
@@ -17,6 +17,6 @@ class HealthCheckMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:  # noqa: D102
         if request.path == "/health":
-            return HttpResponse(status=HTTPStatus.OK)
+            return JsonResponse(data={"ok": True}, status=HTTPStatus.OK)
 
         return self.get_response(request)
