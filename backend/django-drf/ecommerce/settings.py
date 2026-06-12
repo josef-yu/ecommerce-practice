@@ -25,11 +25,13 @@ SECRET_KEY = "django-insecure-v=f19wm4$y0(c$c&55b#_a*i52bm*b+$!_1+m-ek6y#p%dwcy(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS: list[str] = [os.environ["FRONTEND_URL"]]
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
-CORS_ALLOWED_ORIGINS = [os.environ["FRONTEND_URL"]]
+ALLOWED_HOSTS: list[str] = [FRONTEND_URL]
 
-CSRF_TRUSTED_ORIGINS = [os.environ["FRONTEND_URL"]]
+CORS_ALLOWED_ORIGINS = [FRONTEND_URL]
+
+CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
 
 # Application definition
 
@@ -41,7 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "corsheader",
+    "corsheaders",
     "user",
 ]
 
