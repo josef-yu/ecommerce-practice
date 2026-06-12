@@ -13,6 +13,7 @@ dev:
 	poetry run python manage.py runserver 0.0.0.0:$(BACKEND_PORT)
 
 test:
+	poetry install --no-interaction
 	REDIS_URL=redis://localhost:$(REDIS_PORT) \
 	SMTP_HOST=localhost \
 	poetry run python manage.py test
