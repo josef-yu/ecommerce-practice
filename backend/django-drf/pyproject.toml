@@ -83,7 +83,14 @@ indent-width = 4
 target-version = "py312"
 
 [tool.ruff.lint]
-ignore = ["ISC001", "D203", "D213", "TRY003", "EM101"]
+ignore = [
+    "ISC001",
+    "D203",
+    "D213",
+    "TRY003",
+    "EM101",
+    "D106", # Django/DRF `Meta` inner classes don't need docstrings
+]
 select = [
     "ANN", # flake8-annotations
     "ARG", # flake8-arguments
@@ -145,7 +152,11 @@ per-file-ignores = """
 
 [tool.mypy]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
-mypy_path = "./ecommerce"
+# Treat the project root as the single package base so every file gets one
+# unambiguous module name (e.g. common/models.py → common.models).
+mypy_path = "."
+explicit_package_bases = true
+namespace_packages = true
 
 [tool.django-stubs]
 django_settings_module = "ecommerce.settings"

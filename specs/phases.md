@@ -38,12 +38,12 @@ OAuth (Phase 9) and the Frontend (Phase 10) are largely independent and can be w
 - Choose your stack and initialise the project inside the appropriate subfolder.
 - Copy `.env.example` to `.env` at the repo root and fill in values.
 - Create `stack.env` in your stack's folder declaring its port (e.g. `BACKEND_PORT=8080`). See [orchestration.md](orchestration.md) for the full contract.
-- Create a `Makefile` in your stack's folder with `dev` and `test` targets that read config from environment variables — not from a local `.env` file.
+- Create a `Makefile` in your stack's folder with `dev`, `lint`, and `test` targets that read config from environment variables — not from a local `.env` file.
 - Start shared infrastructure: `make infra`.
 - Wire up a health-check endpoint: `GET /health` → `200 { "ok": true }`.
 - Set up a local email trap (already running via Mailpit in `make infra`) and confirm the app can send to it.
 - Set up the test runner; confirm a trivial passing test executes.
-- Basic CI: run `make test BACK=<stack>` (or `FRONT=` / `STACK=`) on every push.
+- Basic CI: run `make lint` and `make test` for the stack (e.g. `make lint BACK=<stack>`, `make test BACK=<stack>`) on every push.
 - Smoke-test the pairing: `make pair FRONT=<x> BACK=<stack>` — the frontend should reach the backend's `/health` endpoint without any manual URL configuration.
 
 ### Done when

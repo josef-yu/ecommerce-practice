@@ -88,14 +88,17 @@ Use a different port for each stack so multiple implementations can coexist:
 
 ## The `Makefile` contract
 
-Every stack must expose two targets in its own `Makefile`. The root orchestrator calls these — it does not know anything else about the stack.
+Every stack must expose three targets in its own `Makefile`. The root orchestrator calls these — it does not know anything else about the stack.
 
 ```makefile
-dev   # Start the development server in the foreground (do not daemonise)
-test  # Run the full test suite and exit with a non-zero code on failure
+dev    # Start the development server in the foreground (do not daemonise)
+lint   # Lint + type-check the stack; exit non-zero on any finding
+test   # Run the full test suite; exit non-zero on failure
 ```
 
-The stack's `make dev` reads its configuration entirely from environment variables — **not** from a local `.env` file. All variables arrive via the root Makefile's `export`.
+Each stack owns **what** `lint` and `test` mean — ruff + mypy for a Python stack, ESLint + tsc for a frontend, etc. The root orchestrator and CI never mention specific tools; they only call `make lint` / `make test`. This is what keeps the system general: adding a Go or Rust backend needs no change to the root Makefile or the workflow.
+
+The stack's targets read configuration entirely from environment variables — **not** from a local `.env` file. All variables arrive via the root Makefile's `export`.
 
 ---
 
@@ -226,7 +229,7 @@ dev:
 
 1. Create the folder: `backend/<stack>/`, `frontend/<stack>/`, or `fullstack/<stack>/`.
 2. Create `stack.env` declaring the port (and optionally the CI runtime — see [CI](#ci)).
-3. Create a `Makefile` with `dev` and `test` targets that read from environment variables.
+3. Create a `Makefile` with `dev`, `lint`, and `test` targets that read from environment variables.
 4. Run `make infra` once (if not already running).
 5. Run `make pair FRONT=<x> BACK=<stack>` or `make fullstack STACK=<stack>`.
 
@@ -258,7 +261,7 @@ POSTGRES_DB_OVERRIDE=ecommerce_spring   # optional; the stack's Makefile uses th
 
 ## CI
 
-The pipeline ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs each stack's own `make test`. It does **not** test every frontend×backend pair — the spec is the contract, so each backend/fullstack is tested against the contract independently, and frontends are tested on their own (live FE↔BE integration is a nightly job, not per-PR).
+The pipeline ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs each stack's own `make lint` and `make test`. It does **not** test every frontend×backend pair — the spec is the contract, so each backend/fullstack is checked against the contract independently, and frontends are checked on their own (live FE↔BE integration is a nightly job, not per-PR).
 
 ### What runs when
 
@@ -274,14 +277,14 @@ A change to the root `Makefile`, `docker-compose.yml`, or `.env.example` also fo
 
 ### How it works
 
-1. A `changes` job diffs the commit range, decides the selection, and discovers every folder under `backend/`, `frontend/`, `fullstack/` that contains a `stack.env`. It emits a dynamic matrix per stack type.
-2. `backend` and `fullstack` jobs boot the shared infra (`docker compose up -d --wait postgres redis`, plus mailpit/minio) and run `make test BACK=<stack>` / `make test STACK=<stack>`.
-3. The `frontend` job runs `make test FRONT=<stack>` with no database — unit/component tests only.
+Each stack gets one job that runs **`make lint` then `make test`** for that stack. The workflow only sets up the runtime and calls those two targets — it has no knowledge of ruff, mypy, ESLint, or any tool.
 
-A single `test` command is typed by keyword, the same way `pair` is: `make test BACK=<stack>`, `make test FRONT=<stack>`, or `make test STACK=<stack>` — exactly one.
+1. A `changes` job diffs the commit range, decides the selection, and discovers every folder under `backend/`, `frontend/`, `fullstack/` that contains a `stack.env`. It emits a dynamic matrix per stack type.
+2. The `backend` and `fullstack` jobs install the stack's runtime, run `make lint`, then boot the shared infra (`docker compose up -d --wait postgres redis`, plus mailpit/minio) and run `make test`. Lint runs before infra, so a lint failure fails fast.
+3. The `frontend` job runs `make lint` then `make test` with no database — lint + unit/component tests only.
 4. `fail-fast: false` — one red stack never cancels the others.
 
-CI reuses the exact same env-injection path as local development: it copies `.env.example` to `.env`, brings up the documented infra, and lets the root `Makefile` inject the primitives into each stack's `make test`. There is no CI-specific configuration inside a stack.
+Both commands are typed by keyword, the same way `pair` is: `make lint BACK=<stack>` / `make test FRONT=<stack>` / etc. — exactly one keyword. CI reuses the exact same env-injection path as local development: it copies `.env.example` to `.env` and lets the root `Makefile` inject the primitives into each stack's `make lint` / `make test`. There is no CI-specific configuration inside a stack.
 
 ### Optional `stack.env` CI keys
 
@@ -294,20 +297,29 @@ CI_RUNTIME=java          # node | python | java | ruby | go
 CI_RUNTIME_VERSION=21    # optional; sensible default per runtime
 ```
 
-The workflow installs the matching toolchain before calling `make test`. Frontends default to Node 20 unless overridden.
+The workflow installs the matching toolchain before calling `make lint` / `make test`. Frontends default to Node 20 unless overridden.
 
 ### Python uses Poetry
 
-**Poetry is the default Python package manager.** For any stack with `CI_RUNTIME=python`, the workflow installs Poetry (`pipx install poetry`) before `actions/setup-python`, and enables Poetry's dependency cache keyed on the stack's `poetry.lock` (`<type>/<stack>/poetry.lock`). Python defaults to 3.13. A Python stack must therefore commit a `poetry.lock`, and its `make test` should install and run through Poetry:
+**Poetry is the default Python package manager.** For any stack with `CI_RUNTIME=python`, the workflow installs Poetry (`pipx install poetry`) before `actions/setup-python`, and enables Poetry's dependency cache keyed on the stack's `poetry.lock` (`<type>/<stack>/poetry.lock`). Python defaults to 3.13. A Python stack commits a `poetry.lock`, and its `lint`/`test` targets install and run through Poetry. Both are self-contained — they install deps and set whatever env they need (e.g. mypy's Django plugin imports settings, which reads `SMTP_HOST`/`POSTGRES_*`):
 
 ```makefile
-# backend/django-drf/Makefile
+# backend/django-drf/Makefile  (illustrative)
+lint:
+	poetry install --no-interaction --with dev
+	poetry run ruff check .
+	poetry run ruff format --check .
+	poetry run mypy .
+
 test:
 	poetry install --no-interaction
 	poetry run python manage.py migrate
 	poetry run python manage.py test
 ```
 
-### What `make test` must do
+### What `make lint` and `make test` must do
 
-Because each stack owns its `test` target, that target is responsible for installing its own dependencies (e.g. `poetry install`, `npm ci`) and preparing its own state: run migrations, **seed the platform merchant**, and stub external services (payment, OAuth, carrier webhooks) per [test-suite.md](test-suite.md). It must exit non-zero on any failure. The infra (Postgres/Redis/Mailpit/MinIO) is already up and reachable on `localhost` at the ports from `.env`.
+Each stack owns these targets and is responsible for installing its own dependencies (e.g. `poetry install`, `npm ci`):
+
+- **`lint`** — run the stack's linters and type-checkers and exit non-zero on any finding. No infra is running when it executes, so it must not depend on a database.
+- **`test`** — prepare its own state (run migrations, **seed the platform merchant**, stub external services — payment, OAuth, carrier webhooks per [test-suite.md](test-suite.md)) and run the suite, exiting non-zero on failure. The infra (Postgres/Redis/Mailpit/MinIO) is already up and reachable on `localhost` at the ports from `.env`.

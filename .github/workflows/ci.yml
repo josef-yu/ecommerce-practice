@@ -1,13 +1,15 @@
 name: CI
 
 # Strategy (see specs/orchestration.md → "## CI"):
-#   - PR pushes:        test only the stacks whose own folder changed (fast feedback)
-#   - specs/** changed: test ALL stacks (the shared contract moved)
-#   - push to main:     test ALL stacks
-#   - nightly schedule: test ALL stacks
-#   - frontends:        unit/component tests only here; live FE↔BE integration is nightly
+#   - PR pushes:        check only the stacks whose own folder changed (fast feedback)
+#   - specs/** changed: check ALL stacks (the shared contract moved)
+#   - push to main:     check ALL stacks
+#   - nightly schedule: check ALL stacks
+#   - frontends:        lint + unit/component tests; live FE↔BE integration is nightly
 #
-# Per-stack runtime is read from each stack's stack.env:
+# Each stack owns its own `lint` and `test` Makefile targets. The workflow only
+# sets up the runtime and calls `make lint` / `make test` — it has no knowledge of
+# ruff/mypy/eslint/poetry/etc. Per-stack runtime is read from each stack's stack.env:
 #   CI_RUNTIME=node|python|java|ruby|go   (optional; omit to self-provision)
 #   CI_RUNTIME_VERSION=20                  (optional; sensible default per runtime)
 
@@ -28,7 +30,7 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------
-  # Discover which stacks to test, and emit a dynamic matrix.
+  # Discover which stacks to check, and emit a dynamic matrix.
   # ---------------------------------------------------------------
   changes:
     runs-on: ubuntu-latest
@@ -53,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # ALL = test every stack
+          # ALL = check every stack
           ALL=0
           [ "$EVENT" = "schedule" ] && ALL=1
           [ "$EVENT" = "workflow_dispatch" ] && ALL=1
@@ -111,7 +113,7 @@ jobs:
           echo "  fullstack=$(emit fullstack)"
 
   # ---------------------------------------------------------------
-  # Backend contract tests — need the full infra (Postgres/Redis/…).
+  # Backend — lint then test. Tests need the full infra (Postgres/…).
   # ---------------------------------------------------------------
   backend:
     needs: changes
@@ -152,24 +154,31 @@ jobs:
         with:
           go-version: ${{ matrix.version != '' && matrix.version || '1.22' }}
 
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Lint
+        env:
+          STACK: ${{ matrix.name }}
+        run: make lint BACK="$STACK"
+
       - name: Start shared infrastructure
         run: |
-          cp .env.example .env
           # Wait on the services tests truly need; best-effort start for the rest.
           docker compose up -d --wait postgres redis
           docker compose up -d mailpit minio
 
-      - name: Run test suite
+      - name: Test
         env:
           STACK: ${{ matrix.name }}
         run: make test BACK="$STACK"
 
       - name: Infra logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose logs --no-color || true
 
   # ---------------------------------------------------------------
-  # Fullstack contract tests — also need infra.
+  # Fullstack — lint then test. Also needs infra.
   # ---------------------------------------------------------------
   fullstack:
     needs: changes
@@ -210,23 +219,30 @@ jobs:
         with:
           go-version: ${{ matrix.version != '' && matrix.version || '1.22' }}
 
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Lint
+        env:
+          STACK: ${{ matrix.name }}
+        run: make lint STACK="$STACK"
+
       - name: Start shared infrastructure
         run: |
-          cp .env.example .env
           docker compose up -d --wait postgres redis
           docker compose up -d mailpit minio
 
-      - name: Run test suite
+      - name: Test
         env:
           STACK: ${{ matrix.name }}
         run: make test STACK="$STACK"
 
       - name: Infra logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose logs --no-color || true
 
   # ---------------------------------------------------------------
-  # Frontend tests — unit/component only (no DB). Live FE↔BE
+  # Frontend — lint then unit/component tests (no DB). Live FE↔BE
   # integration against a reference backend runs in the nightly
   # `integration` workflow, not on every PR.
   # ---------------------------------------------------------------
@@ -246,9 +262,15 @@ jobs:
         with:
           node-version: ${{ matrix.version != '' && matrix.version || '20' }}
 
-      - name: Run test suite
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Lint
         env:
           STACK: ${{ matrix.name }}
-        run: |
-          cp .env.example .env
-          make test FRONT="$STACK"
+        run: make lint FRONT="$STACK"
+
+      - name: Test
+        env:
+          STACK: ${{ matrix.name }}
+        run: make test FRONT="$STACK"

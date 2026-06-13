@@ -46,11 +46,12 @@ cp .env.example .env                     # then fill in values
 make infra                               # start Postgres, Redis, Mailpit, MinIO
 make pair FRONT=react BACK=django-drf    # run a frontend + backend pair
 make fullstack STACK=nextjs              # or a self-contained fullstack impl
+make lint BACK=django-drf                # lint a backend (or FRONT= / STACK=)
 make test BACK=django-drf                # test a backend (or FRONT= / STACK=)
 make help                                # everything else
 ```
 
-The root Makefile reads each stack's `stack.env` for its port and injects the cross-references automatically: the backend receives `FRONTEND_URL` (for CORS), and the frontend receives `API_URL` and `WS_URL`. No manual URL wiring. Every stack exposes just two Makefile targets, `dev` and `test`, configured entirely through environment variables.
+The root Makefile reads each stack's `stack.env` for its port and injects the cross-references automatically: the backend receives `FRONTEND_URL` (for CORS), and the frontend receives `API_URL` and `WS_URL`. No manual URL wiring. Every stack exposes the same three Makefile targets — `dev`, `lint`, and `test` — configured entirely through environment variables.
 
 The full variable-injection contract, including how to add a new stack (a folder, a `stack.env`, a `Makefile`), is in [specs/orchestration.md](specs/orchestration.md).
 

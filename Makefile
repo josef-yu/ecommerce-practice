@@ -6,6 +6,7 @@
 #   make infra-down                          stop shared services
 #   make pair FRONT=angular BACK=spring      run a frontend + backend pair
 #   make fullstack STACK=nextjs              run a standalone fullstack impl
+#   make lint BACK=spring                    lint a backend  (or FRONT= / STACK=)
 #   make test BACK=spring                    test a backend  (or FRONT= / STACK=)
 #   make logs                                tail infra logs
 # ---------------------------------------------------------------
@@ -20,7 +21,7 @@ FRONT ?= react
 BACK  ?= django-drf
 STACK ?= nextjs
 
-.PHONY: infra infra-down pair fullstack test logs help \
+.PHONY: infra infra-down pair fullstack test lint logs help \
         _require-env _require-pair-stacks _require-fullstack-stack
 
 # ---------------------------------------------------------------
@@ -88,38 +89,38 @@ fullstack: _require-env _require-fullstack-stack
 	$(MAKE) --no-print-directory -C fullstack/$(STACK) dev
 
 # ---------------------------------------------------------------
-# Tests: one command, typed by keyword like `pair`.
-#   make test BACK=<stack>     test a backend
-#   make test FRONT=<stack>    test a frontend
-#   make test STACK=<stack>    test a fullstack
-# Exactly one keyword must be given. The stack's own `make test` runs
-# with the same vars injected as `dev`, so CI and local behave identically.
-# Only command-line keywords count — the FRONT/BACK/STACK defaults are ignored.
+# Lint & test: one command each, typed by keyword like `pair`.
+#   make test BACK=<stack>     test a backend     (FRONT= / STACK= too)
+#   make lint FRONT=<stack>    lint a frontend    (BACK= / STACK= too)
+# Exactly one keyword must be given. The recipe is shared — `$@` is the
+# target (`lint` or `test`), forwarded to the stack's own Makefile, which
+# owns its linters/runners. Same var injection as `dev`, so CI and local
+# behave identically. Only command-line keywords count — defaults ignored.
 # ---------------------------------------------------------------
 
-test: _require-env
+test lint: _require-env
 	@b='$(if $(filter command line,$(origin BACK)),$(BACK))'; \
 	f='$(if $(filter command line,$(origin FRONT)),$(FRONT))'; \
 	s='$(if $(filter command line,$(origin STACK)),$(STACK))'; \
 	n=0; [ -n "$$b" ] && n=$$((n+1)); [ -n "$$f" ] && n=$$((n+1)); [ -n "$$s" ] && n=$$((n+1)); \
 	if [ $$n -ne 1 ]; then \
 		echo ""; \
-		echo "  Usage: make test BACK=<stack> | FRONT=<stack> | STACK=<stack>"; \
+		echo "  Usage: make $@ BACK=<stack> | FRONT=<stack> | STACK=<stack>"; \
 		echo "  Pass exactly one."; \
 		echo ""; \
 		exit 1; \
 	fi; \
 	if [ -n "$$b" ]; then \
 		[ -f backend/$$b/stack.env ] || { echo "  Error: backend/$$b/stack.env not found."; exit 1; }; \
-		$(MAKE) --no-print-directory -C backend/$$b test; \
+		$(MAKE) --no-print-directory -C backend/$$b $@; \
 	elif [ -n "$$f" ]; then \
 		[ -f frontend/$$f/stack.env ] || { echo "  Error: frontend/$$f/stack.env not found."; exit 1; }; \
 		API_URL=$${API_URL:-http://localhost:8000/api/v1} \
 		WS_URL=$${WS_URL:-ws://localhost:8000/ws} \
-		$(MAKE) --no-print-directory -C frontend/$$f test; \
+		$(MAKE) --no-print-directory -C frontend/$$f $@; \
 	else \
 		[ -f fullstack/$$s/stack.env ] || { echo "  Error: fullstack/$$s/stack.env not found."; exit 1; }; \
-		$(MAKE) --no-print-directory -C fullstack/$$s test; \
+		$(MAKE) --no-print-directory -C fullstack/$$s $@; \
 	fi
 
 # ---------------------------------------------------------------
@@ -171,6 +172,7 @@ help:
 	@echo "  make infra-down                         Stop shared services"
 	@echo "  make pair FRONT=angular BACK=spring     Run a frontend + backend pair"
 	@echo "  make fullstack STACK=nextjs             Run a standalone fullstack implementation"
+	@echo "  make lint BACK=spring                   Lint a backend (or FRONT= / STACK=)"
 	@echo "  make test BACK=spring                   Test a backend (or FRONT= / STACK=)"
 	@echo "  make logs                               Tail infra container logs"
 	@echo ""
