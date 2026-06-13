@@ -2,7 +2,7 @@
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/josef-yu/ecommerce-practice?labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-This repository contains implementation practice for an ecommerce project. Claude wrote the specs and I implement it. This is to maintain my technical skills in the AI era of software development as it also helps in reviewing AI generated code.
+This repository contains implementation practice for an ecommerce project. Claude wrote the specs, excluding the OpenAPI specifications,and I implement it. This is to maintain my technical skills in the AI era of software development as it also helps in reviewing AI generated code.
 
 ## What gets built
 
