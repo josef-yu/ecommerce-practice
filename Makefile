@@ -21,7 +21,8 @@ FRONT ?= react
 BACK  ?= django-drf
 STACK ?= nextjs
 
-.PHONY: infra infra-down pair fullstack test lint contract contract-compile logs help \
+.PHONY: infra infra-down pair fullstack test lint \
+        contract contract-compile contract-fmt contract-fmt-check logs help \
         _require-env _require-pair-stacks _require-fullstack-stack
 
 # ---------------------------------------------------------------
@@ -51,12 +52,20 @@ logs:
 #
 # `contract` (local) installs/updates deps with `npm install`.
 # `contract-compile` only compiles — CI runs `npm ci` first, then this.
+# Compiles with --warn-as-error so any compiler warning fails the build.
+# `contract-fmt` formats the .tsp source; `contract-fmt-check` verifies it (CI).
 # ---------------------------------------------------------------
 contract:
-	cd specs/contract && npm install --no-audit --no-fund --silent && npx tsp compile .
+	cd specs/contract && npm install --no-audit --no-fund --silent && npx tsp compile . --warn-as-error
 
 contract-compile:
-	cd specs/contract && npx tsp compile .
+	cd specs/contract && npx tsp compile . --warn-as-error
+
+contract-fmt:
+	cd specs/contract && npx tsp format "*.tsp"
+
+contract-fmt-check:
+	cd specs/contract && npx tsp format --check "*.tsp"
 
 # ---------------------------------------------------------------
 # Pair: any frontend + any backend
@@ -190,6 +199,7 @@ help:
 	@echo "  make lint BACK=spring                   Lint a backend (or FRONT= / STACK=)"
 	@echo "  make test BACK=spring                   Test a backend (or FRONT= / STACK=)"
 	@echo "  make contract                           Compile TypeSpec → specs/openapi.yaml + schemas/"
+	@echo "  make contract-fmt                       Format the TypeSpec source"
 	@echo "  make logs                               Tail infra container logs"
 	@echo ""
 	@echo "Available backends:"

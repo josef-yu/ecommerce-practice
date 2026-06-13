@@ -50,7 +50,9 @@ jobs:
       - name: Install contract deps
         run: npm ci --no-audit --no-fund
         working-directory: specs/contract
-      - name: Compile contract
+      - name: Check TypeSpec formatting
+        run: make contract-fmt-check
+      - name: Compile contract (warnings = errors)
         run: make contract-compile
       - name: Assert artifacts are in sync with the TypeSpec source
         run: |
