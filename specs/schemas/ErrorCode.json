@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ErrorCode.json",
+    "type": "string",
+    "enum": [
+        "BAD_REQUEST",
+        "UNAUTHORIZED",
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "VALIDATION_ERROR",
+        "CONFLICT",
+        "INTERNAL_ERROR"
+    ]
+}

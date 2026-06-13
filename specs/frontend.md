@@ -2,6 +2,32 @@
 
 ---
 
+## API Type Compliance
+
+**Every frontend MUST derive its API layer from the canonical contract — it MUST NOT hand-write request/response or event types.** The contract is the committed, backend-neutral artifact set described in [contract.md](contract.md): `specs/openapi.yaml` (REST) and `specs/schemas/*.json` (payloads, including WebSocket events). Because both the frontend and every backend answer to the same artifacts, they cannot silently drift.
+
+### Requirements
+
+1. **Generate, don't hand-write.**
+   - REST types — generated from `specs/openapi.yaml` (e.g. `openapi-typescript`, `orval`).
+   - WebSocket payload types — generated from `specs/schemas/*.json` (e.g. `json-schema-to-typescript`, `quicktype`). The `type → payload` mapping follows [`ws-events.yaml`](contract/ws-events.yaml).
+2. **Generate from the committed artifacts, not a live backend.** The source is the canonical `specs/` files — deterministic and backend-independent. (A running backend serves the same `openapi.yaml`, but CI/codegen reads the committed file.)
+3. **Commit the generated output**, so reviewers and CI see it.
+4. **Expose a regeneration command** (e.g. an npm script).
+5. **Use the generated types at the boundary.** Casting API payloads to `any`/`unknown` or re-declaring their shapes by hand to bypass the generated types is non-compliant.
+6. **No drift.** The committed generated types must match the contract: regenerating produces no diff.
+
+### Enforcement (the frontend's `lint` target)
+
+The stack's `make lint` (see [orchestration.md](orchestration.md)) MUST fail if the frontend is not type-compliant. It must:
+
+- **Type-check** the app (e.g. `tsc --noEmit`) against the generated types — a contract change that breaks a call site fails the build.
+- **Drift-check** the generated types: regenerate from `specs/openapi.yaml` + `specs/schemas/` and assert no diff against the committed output (`git diff --exit-code`, or the generator's `--check` mode).
+
+Because CI runs each frontend's `make lint`, this is enforced per-frontend automatically.
+
+---
+
 ## Pages & Routing
 
 | Route | Description | Auth |

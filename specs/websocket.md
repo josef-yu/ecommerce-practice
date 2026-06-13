@@ -18,6 +18,15 @@ All messages in both directions use this JSON envelope:
 { "type": "EVENT_TYPE", "payload": {} }
 ```
 
+### Payload schemas (canonical)
+
+Event payloads are part of the canonical contract, not prose. Each event's `payload` is a **JSON Schema** under `specs/schemas/` (emitted from the TypeSpec source — see [contract.md](contract.md)), reusing the same entity schemas as the REST API (`NOTIFICATION_CREATED` carries the same `Notification` as `GET /notifications`). The tables below are the human reference; the schemas are authoritative.
+
+Protocol topology — which `type` flows which direction and which payload schema it carries — is the registry [`specs/contract/ws-events.yaml`](contract/ws-events.yaml). Compliance:
+
+- **Backends** validate emitted payloads against `specs/schemas/` (e.g. ajv / python-jsonschema) — see [test-suite.md](test-suite.md) §OpenAPI.
+- **Frontends** generate WS payload types from `specs/schemas/` — see [frontend.md](frontend.md#api-type-compliance).
+
 ---
 
 ## Server → Client Events

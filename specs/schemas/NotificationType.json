@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "NotificationType.json",
+    "type": "string",
+    "enum": [
+        "order_update",
+        "merchant_product",
+        "merchant_account",
+        "logistics",
+        "promo",
+        "system",
+        "chat"
+    ]
+}

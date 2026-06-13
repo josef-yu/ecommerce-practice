@@ -7,6 +7,9 @@ name: CI
 #   - nightly schedule: check ALL stacks
 #   - frontends:        lint + unit/component tests; live FE↔BE integration is nightly
 #
+# A standalone `contract` job recompiles the TypeSpec source and asserts the
+# committed specs/openapi.yaml + specs/schemas/ are in sync.
+#
 # Each stack owns its own `lint` and `test` Makefile targets. The workflow only
 # sets up the runtime and calls `make lint` / `make test` — it has no knowledge of
 # ruff/mypy/eslint/poetry/etc. Per-stack runtime is read from each stack's stack.env:
@@ -29,6 +32,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------
+  # Contract: the TypeSpec source is the single source of truth.
+  # Recompile and assert the committed artifacts (specs/openapi.yaml,
+  # specs/schemas/) are in sync. A drifted artifact — or a .tsp change
+  # without recompiling — fails here.
+  # ---------------------------------------------------------------
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: specs/contract/package-lock.json
+      - name: Install contract deps
+        run: npm ci --no-audit --no-fund
+        working-directory: specs/contract
+      - name: Compile contract
+        run: make contract-compile
+      - name: Assert artifacts are in sync with the TypeSpec source
+        run: |
+          # Catches both modified and newly-added (untracked) artifacts.
+          changes="$(git status --porcelain -- specs/openapi.yaml specs/schemas)"
+          if [ -n "$changes" ]; then
+            echo "::error::specs/openapi.yaml or specs/schemas/ is stale. Run 'make contract' and commit the result."
+            echo "$changes"
+            exit 1
+          fi
+
   # ---------------------------------------------------------------
   # Discover which stacks to check, and emit a dynamic matrix.
   # ---------------------------------------------------------------

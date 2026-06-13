@@ -74,13 +74,15 @@ OAuth (Phase 9) and the Frontend (Phase 10) are largely independent and can be w
 - Background job: `send_verification_email`
 - Address book: `GET /addresses`, `POST /addresses`, `PATCH /addresses/:id`, `DELETE /addresses/:id`, `POST /addresses/:id/set-default`
 - Rate limiting on auth endpoints
+- **OpenAPI**: serve the OpenAPI 3.1 document at `/api/v1/openapi.json` and docs at `/api/v1/docs`. The document is established here and grows with every later phase — keep it in sync as you add endpoints.
 
 ### Spec files
-[domain-model.md](domain-model.md) (User, UserAddress) · [api.md](api.md) (Auth, Addresses) · [security.md](security.md) (Authentication, Address Book Rules)
+[domain-model.md](domain-model.md) (User, UserAddress) · [api.md](api.md) (Auth, Addresses, OpenAPI Compliance) · [security.md](security.md) (Authentication, Address Book Rules)
 
 ### Done when
 - TC-AUTH-01 through TC-AUTH-09 pass.
 - TC-ADDR-01 through TC-ADDR-12 pass.
+- TC-OAS-01 through TC-OAS-07 pass (the OpenAPI document validates and matches the implemented endpoints).
 - `password_hash` never appears in any API response (TC-SEC-01).
 - Rate limiting returns `429` on the 11th rapid login attempt (TC-SEC-06).
 

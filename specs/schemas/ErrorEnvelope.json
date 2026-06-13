@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ErrorEnvelope.json",
+    "type": "object",
+    "properties": {
+        "error": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "$ref": "ErrorCode.json"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "details": {
+                    "$ref": "#/$defs/RecordUnknown"
+                }
+            },
+            "required": [
+                "code",
+                "message"
+            ]
+        }
+    },
+    "required": [
+        "error"
+    ],
+    "description": "Standard error envelope returned by every 4xx/5xx response.",
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

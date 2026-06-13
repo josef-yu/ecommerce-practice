@@ -1,0 +1,264 @@
+openapi: 3.1.0
+info:
+  title: Ecommerce Platform API
+  version: 1.0.0
+  description: |-
+    Canonical contract for the ecommerce platform — the single source of truth.
+
+    `make contract` (tsp compile) emits:
+    - OpenAPI 3.1  -> specs/openapi.yaml      (REST surface)
+    - JSON Schema  -> specs/schemas/*.json     (shared payloads, reused by WS events)
+
+    `@jsonSchema` on the namespace emits every model it contains (across all
+    module files) as a JSON Schema. Models are split by domain into the imported
+    *.tsp files; this file only wires them together and carries the service-level
+    decorators.
+
+    NOTE: a representative slice (envelopes, products, notifications, two WS
+    events) that establishes the conventions. The full surface is modelled
+    incrementally alongside the build phases.
+tags: []
+paths:
+  /api/v1/products:
+    get:
+      operationId: Products_list
+      description: Public. Active products only.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+                required:
+                  - data
+                  - meta
+  /api/v1/products/{id}:
+    get:
+      operationId: Products_read
+      description: Public.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  schemas:
+    ErrorCode:
+      type: string
+      enum:
+        - BAD_REQUEST
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - VALIDATION_ERROR
+        - CONFLICT
+        - INTERNAL_ERROR
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: object
+              unevaluatedProperties: {}
+          required:
+            - code
+            - message
+      description: Standard error envelope returned by every 4xx/5xx response.
+    Notification:
+      type: object
+      required:
+        - id
+        - user_id
+        - type
+        - title
+        - body
+        - read
+        - created_at
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        title:
+          type: string
+        body:
+          type: string
+        read:
+          type: boolean
+        metadata:
+          type: object
+          unevaluatedProperties: {}
+        created_at:
+          type: string
+          format: date-time
+    NotificationType:
+      type: string
+      enum:
+        - order_update
+        - merchant_product
+        - merchant_account
+        - logistics
+        - promo
+        - system
+        - chat
+    PageMeta:
+      type: object
+      required:
+        - page
+        - per_page
+        - total
+        - total_pages
+      properties:
+        page:
+          type: integer
+          format: int32
+        per_page:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int32
+        total_pages:
+          type: integer
+          format: int32
+      description: Pagination metadata attached to every list response.
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - price
+        - stock_quantity
+        - merchant_id
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: integer
+          format: int32
+          description: Cents.
+        stock_quantity:
+          type: integer
+          format: int32
+        merchant_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        created_at:
+          type: string
+          format: date-time
+    ProductStatus:
+      type: string
+      enum:
+        - draft
+        - pending_approval
+        - active
+        - rejected
+        - archived
+    WsNotificationCreated:
+      type: object
+      required:
+        - type
+        - payload
+      properties:
+        type:
+          type: string
+          enum:
+            - NOTIFICATION_CREATED
+        payload:
+          $ref: '#/components/schemas/Notification'
+      allOf:
+        - $ref: '#/components/schemas/WsServerEvent'
+    WsOrderStatusChanged:
+      type: object
+      required:
+        - type
+        - payload
+      properties:
+        type:
+          type: string
+          enum:
+            - ORDER_STATUS_CHANGED
+        payload:
+          type: object
+          properties:
+            order_id:
+              type: string
+            status:
+              type: string
+            updated_at:
+              type: string
+              format: date-time
+          required:
+            - order_id
+            - status
+            - updated_at
+      allOf:
+        - $ref: '#/components/schemas/WsServerEvent'
+    WsServerEvent:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
+        mapping:
+          NOTIFICATION_CREATED: '#/components/schemas/WsNotificationCreated'
+          ORDER_STATUS_CHANGED: '#/components/schemas/WsOrderStatusChanged'
+      description: Server -> client WebSocket message envelope (discriminated on `type`).

@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WsServerEvent.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "type"
+    ],
+    "description": "Server -> client WebSocket message envelope (discriminated on `type`)."
+}

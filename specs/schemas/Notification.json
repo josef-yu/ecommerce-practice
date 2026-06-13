@@ -1,0 +1,48 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Notification.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "user_id": {
+            "type": "string"
+        },
+        "type": {
+            "$ref": "NotificationType.json"
+        },
+        "title": {
+            "type": "string"
+        },
+        "body": {
+            "type": "string"
+        },
+        "read": {
+            "type": "boolean"
+        },
+        "metadata": {
+            "$ref": "#/$defs/RecordUnknown"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "type",
+        "title",
+        "body",
+        "read",
+        "created_at"
+    ],
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

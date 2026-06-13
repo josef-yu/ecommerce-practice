@@ -1,0 +1,36 @@
+# WebSocket event registry — the protocol topology that JSON Schema / OpenAPI
+# do not express: which events flow which direction, and which payload schema
+# (emitted to specs/schemas/) each carries.
+#
+# Hand-authored. Payload schemas come from the TypeSpec contract; `payload`
+# below names the file under specs/schemas/ (without the .json extension), or
+# `null` for events with no payload. Keep this in sync with websocket.tsp and
+# websocket.md.
+#
+# direction:
+#   server_to_client  — server emits, client receives
+#   client_to_server  — client emits, server receives
+
+channel: /ws
+envelope: { type: string, payload: object } # see WsServerEvent / WsClientEvent schemas
+
+events:
+  # ---- server → client ----
+  ORDER_STATUS_CHANGED:
+    direction: server_to_client
+    payload: WsOrderStatusChanged
+  NOTIFICATION_CREATED:
+    direction: server_to_client
+    payload: WsNotificationCreated
+  PING:
+    direction: server_to_client
+    payload: null # { timestamp } — modelled when the full surface lands
+
+  # ---- client → server ----
+  PONG:
+    direction: client_to_server
+    payload: null # { timestamp }
+
+# NOTE: representative slice. The remaining events in websocket.md
+# (CART_UPDATED, INVENTORY_LOW, SHIPMENT_STATUS_CHANGED, all CHAT_*, presence,
+# typing, etc.) are added here as their payloads are modelled in websocket.tsp.

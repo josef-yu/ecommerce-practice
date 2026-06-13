@@ -1,0 +1,23 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WsNotificationCreated.json",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "NOTIFICATION_CREATED"
+        },
+        "payload": {
+            "$ref": "Notification.json"
+        }
+    },
+    "required": [
+        "type",
+        "payload"
+    ],
+    "allOf": [
+        {
+            "$ref": "WsServerEvent.json"
+        }
+    ]
+}

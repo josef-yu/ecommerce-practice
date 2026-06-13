@@ -850,6 +850,42 @@ These tests require simulating simultaneous requests. Use parallel HTTP clients 
 
 ---
 
+## 15. OpenAPI Compliance
+
+See [api.md](api.md) §OpenAPI Compliance. These verify the document exists, validates, and matches reality.
+
+**TC-OAS-01 — document is served and valid**
+- Action: `GET /api/v1/openapi.json` with no auth.
+- Expect: `200`; body is JSON with `openapi` starting `"3.1"`; the document passes a standard OpenAPI 3.1 validator with zero errors.
+
+**TC-OAS-02 — docs UI is served**
+- Action: `GET /api/v1/docs` with no auth.
+- Expect: `200`, an HTML page (Swagger UI or Redoc).
+
+**TC-OAS-03 — bearer security scheme declared**
+- Action: parse the document from TC-OAS-01.
+- Expect: `components.securitySchemes` contains an HTTP bearer scheme (`type: http`, `scheme: bearer`, `bearerFormat: JWT`); an authenticated route (e.g. `GET /auth/me`) lists it under `security`; a public route (e.g. `GET /products`) does not require it.
+
+**TC-OAS-04 — every documented endpoint is real (no phantom paths)**
+- Action: for each `path`+`method` in the document, issue a request (unauthenticated is fine; auth/validation errors are acceptable).
+- Expect: no response is `404 NOT_FOUND` with code `NOT_FOUND` due to an undefined route — i.e. the route exists. The document describes only real endpoints.
+
+**TC-OAS-05 — real endpoints are documented (no missing paths)**
+- Setup: a curated list of core routes (`POST /auth/login`, `GET /products`, `GET /products/:id`, `POST /orders`, `GET /cart`, `GET /conversations`).
+- Action: check each is present in the document's `paths`.
+- Expect: all present, with the correct method.
+
+**TC-OAS-06 — responses conform to declared schemas**
+- Setup: authenticated User A with a known product and cart.
+- Action: call `GET /products/{id}` and `GET /cart`; validate each response body against the response schema the document declares for that endpoint (resolve `$ref`s).
+- Expect: both responses validate against their declared schemas (required fields present, types match).
+
+**TC-OAS-07 — error envelope is modeled**
+- Action: parse the document; trigger a `422` (e.g. `POST /auth/register` with a weak password) and a `404`.
+- Expect: the document declares a reusable error schema (matching the error envelope) and references it for the `4xx`/`5xx` responses; the live `422` and `404` bodies validate against that schema.
+
+---
+
 ## Test Environment Requirements
 
 - Database must be in a known clean state at the start of each test (use transactions that roll back, or a fresh schema per test).

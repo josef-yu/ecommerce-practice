@@ -279,6 +279,7 @@ A change to the root `Makefile`, `docker-compose.yml`, or `.env.example` also fo
 
 Each stack gets one job that runs **`make lint` then `make test`** for that stack. The workflow only sets up the runtime and calls those two targets — it has no knowledge of ruff, mypy, ESLint, or any tool.
 
+0. A standalone **`contract`** job installs the contract deps with `npm ci` (lockfile-pinned), recompiles the TypeSpec source (`make contract-compile`), and asserts the committed `specs/openapi.yaml` + `specs/schemas/` are in sync — a drifted artifact, or a `.tsp` change without recompiling, fails CI. Independent of the stack matrix. See [contract.md](contract.md).
 1. A `changes` job diffs the commit range, decides the selection, and discovers every folder under `backend/`, `frontend/`, `fullstack/` that contains a `stack.env`. It emits a dynamic matrix per stack type.
 2. The `backend` and `fullstack` jobs install the stack's runtime, run `make lint`, then boot the shared infra (`docker compose up -d --wait postgres redis`, plus mailpit/minio) and run `make test`. Lint runs before infra, so a lint failure fails fast.
 3. The `frontend` job runs `make lint` then `make test` with no database — lint + unit/component tests only.

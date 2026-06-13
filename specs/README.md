@@ -9,6 +9,7 @@ Repository layout, implementation status, and run instructions live in the [root
 | File | Contents |
 |---|---|
 | [domain-model.md](domain-model.md) | All entities, fields, types, and state machines |
+| [contract.md](contract.md) | Canonical machine contract: TypeSpec source → OpenAPI + JSON Schema, and the compliance model |
 | [api.md](api.md) | REST API contracts: endpoints, request/response shapes, error codes |
 | [websocket.md](websocket.md) | WebSocket connection protocol and all event types |
 | [chat.md](chat.md) | Customer support chat feature: domain model, REST, WebSocket, UX |
@@ -23,6 +24,8 @@ Repository layout, implementation status, and run instructions live in the [root
 ## Quick Reference
 
 - Base API path: `/api/v1`
+- Canonical contract: TypeSpec in `contract/` → `openapi.yaml` + `schemas/` (run `make contract`)
+- OpenAPI 3.1 document (required): `GET /api/v1/openapi.json`; docs at `/api/v1/docs`
 - WebSocket endpoint: `ws://host/ws?token=<jwt>`
 - All monetary values are integers in the smallest currency unit (cents)
 - All IDs are UUIDs

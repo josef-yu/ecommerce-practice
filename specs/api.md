@@ -48,6 +48,36 @@ All list endpoints accept `?page=1&per_page=20` and respond with:
 
 ---
 
+## OpenAPI Compliance
+
+The REST contract is the **canonical, backend-neutral** OpenAPI 3.1 document `specs/openapi.yaml`, compiled from the TypeSpec source in `specs/contract/` (see [contract.md](contract.md)). It is the source of truth; this file (api.md) is the human narrative. No backend generates the contract — every backend is held against it.
+
+### Required endpoints
+
+**Every backend MUST serve the canonical contract.** A backend that does not is non-compliant regardless of whether its endpoints work.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/v1/openapi.json` | The canonical OpenAPI 3.1 document as JSON (equal to `specs/openapi.yaml`). Public, no auth. |
+| `GET /api/v1/openapi.yaml` | The same document as YAML. Public, no auth. (Optional but recommended.) |
+| `GET /api/v1/docs` | Human-browsable API docs (Swagger UI or Redoc) rendered from the document. Public. |
+
+Serve the committed `specs/openapi.yaml` as-is — do not auto-generate a divergent document from the framework.
+
+### Every backend MUST
+
+1. **Serve the canonical document** — the body of `GET /api/v1/openapi.json` is semantically equal to `specs/openapi.yaml`.
+2. **Conform at runtime** — actual responses MUST validate against the schemas the document declares: correct status codes, the error-envelope schema on `4xx`/`5xx`, the pagination wrapper on lists, and entity shapes via `$ref`. Enforced by the contract tests in [test-suite.md](test-suite.md) §OpenAPI (e.g. Schemathesis driven by `specs/openapi.yaml`).
+3. **Honour the security scheme** — the document declares `bearerAuth` (HTTP bearer, `bearerFormat: JWT`); authenticated endpoints require it, public ones do not, and the backend enforces that.
+
+### Authoring the contract (maintainers)
+
+The document is **not** hand-edited or framework-generated. Change the TypeSpec source in `specs/contract/` and run `make contract`; CI's `contract` job asserts the committed `specs/openapi.yaml` matches the source. Details and the compliance model: [contract.md](contract.md).
+
+WebSocket events ([websocket.md](websocket.md)) are out of OpenAPI's scope; their payloads are JSON Schema under `specs/schemas/` and their topology is in [`ws-events.yaml`](contract/ws-events.yaml).
+
+---
+
 ## Auth
 
 ### `POST /auth/register`

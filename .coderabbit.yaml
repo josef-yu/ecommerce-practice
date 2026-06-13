@@ -2,15 +2,21 @@
 language: "en-US"
 reviews:
   profile: "chill"
-  paths:
-    include:
-      - "backend/**"
-      - "frontend/**"
-    exclude:
-      - "specs/**"
-      - "Makefile"
-      - "docker-compose.yml"
-  
+  # Glob allowlist; patterns starting with "!" are exclusions.
+  path_filters:
+    - "backend/**"
+    - "frontend/**"
+    - "fullstack/**"
+    - "specs/**"
+    - ".github/**"
+    - "Makefile"
+    - "docker-compose.yml"
+    # Generated contract artifacts — emitted from specs/contract/*.tsp, never hand-edited.
+    - "!specs/openapi.yaml"
+    - "!specs/schemas/**"
+    - "!specs/contract/package-lock.json"
+    - "!**/node_modules/**"
+
   path_instructions:
     - path: "backend/**"
       instructions: |
@@ -27,3 +33,50 @@ reviews:
         1. Flag any hardcoded API endpoint strings; all requests must route relative to a dynamic base configuration environment variable.
         2. Ensure all UI components natively support aria-labels and clean responsive wrappers.
         3. Double check that state management components properly validate price metrics as strict positive numbers before initializing checkout hooks.
+        4. Flag hand-written API request/response or WebSocket payload types; these must be generated from specs/openapi.yaml and specs/schemas/ (see specs/frontend.md → API Type Compliance).
+
+    - path: "fullstack/**"
+      instructions: |
+        You are reviewing a self-contained full-stack e-commerce implementation (API and UI served from one app, same origin). Apply both the server and the UI rules:
+        Server:
+        1. Prices and financial values use integer cents (or a decimal type) — never floating-point.
+        2. Entity identifiers are UUIDv4, not auto-incrementing integers.
+        3. Timestamps are ISO 8601 UTC.
+        4. API routes follow the `/api/v1/...` namespace, and the app serves the canonical OpenAPI document at `/api/v1/openapi.json` plus docs at `/api/v1/docs`.
+        5. Error responses use the unified envelope (message, error code, status details).
+        UI:
+        6. No hardcoded API endpoint strings; route requests via configuration.
+        7. Components support aria-labels and responsive layout.
+        8. Validate prices as strict positive numbers before checkout.
+        9. Flag hand-written API request/response or WebSocket payload types; these must be generated from specs/openapi.yaml and specs/schemas/ (see specs/contract.md and specs/frontend.md → API Type Compliance).
+
+    - path: "specs/**"
+      instructions: |
+        You are reviewing the stack-agnostic contract specs that every implementation must follow. The Markdown files are the source of truth for behavior; specs/contract/*.tsp is the source of truth for the machine-readable contract.
+        1. Cross-file consistency: entities, fields, enum values, endpoints, WebSocket events, notification types, and HTTP status codes referenced in one file must match their definitions across domain-model.md, api.md, websocket.md, notifications.md, and chat.md. Flag any mismatch.
+        2. Flag any requirement that contradicts a test case in test-suite.md (an endpoint, status value, field, or response a TC asserts that the spec no longer matches).
+        3. Enforce the shared conventions on new content: the `/api/v1` namespace, money as integer cents, UUID identifiers, ISO 8601 UTC timestamps, the standard error envelope, and bearer-JWT auth.
+        4. specs/openapi.yaml and specs/schemas/ are GENERATED from specs/contract/*.tsp via `make contract`. A contract change must be made in the TypeSpec source; flag prose/contract changes that should also be reflected in specs/contract/*.tsp but are not.
+
+    - path: "specs/contract/**"
+      instructions: |
+        TypeSpec source — the single source of truth for the machine-readable API contract. specs/openapi.yaml and specs/schemas/*.json are emitted from here and must never be hand-edited (the CI `contract` job asserts they stay in sync).
+        1. Flag changes to *.tsp that would require regenerating the committed artifacts but where the PR has not run `make contract` (the emitted files are stale).
+        2. Check new models keep the shared conventions (integer-cents money, UUID ids, ISO 8601 timestamps, the error envelope, bearer auth) and reuse entity schemas across REST responses and WebSocket payloads rather than duplicating shapes.
+
+    - path: ".github/**"
+      instructions: |
+        CI/CD workflows. The pipeline runs a standalone `contract` job, then a per-stack matrix where each job sets up the runtime and calls the stack's own `make lint` then `make test`. Check:
+        1. The workflow stays free of tool-specific commands (no ruff/mypy/eslint/poetry inline) — stacks own those via their Makefile targets.
+        2. Stacks are discovered dynamically from `stack.env`, not hardcoded.
+        3. Stack matrices use `fail-fast: false` so one red stack does not cancel the others.
+        4. Pipeline installs are lockfile-pinned (`npm ci`, `poetry install`), not `npm install`.
+        5. The `contract` job recompiles the TypeSpec source and asserts specs/openapi.yaml + specs/schemas/ are in sync.
+
+    - path: "Makefile"
+      instructions: |
+        Root orchestrator. It injects environment variables into each stack and calls the stack's own `dev` / `lint` / `test` targets; it must not contain stack- or tool-specific logic. Check that new targets keep the keyword-dispatch convention (`BACK=` / `FRONT=` / `STACK=`), that cross-stack variable injection (FRONTEND_URL for CORS, API_URL / WS_URL for the frontend) stays consistent, and that `contract` regenerates specs/openapi.yaml + specs/schemas/ from the TypeSpec source.
+
+    - path: "docker-compose.yml"
+      instructions: |
+        Shared local infrastructure (Postgres, Redis, Mailpit, MinIO). Check that images are pinned to a version tag, services the app waits on expose working healthchecks, and ports/credentials line up with .env.example. The SMTP service must remain a local trap (Mailpit) — never a real mail server.

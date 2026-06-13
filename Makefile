@@ -21,7 +21,7 @@ FRONT ?= react
 BACK  ?= django-drf
 STACK ?= nextjs
 
-.PHONY: infra infra-down pair fullstack test lint logs help \
+.PHONY: infra infra-down pair fullstack test lint contract contract-compile logs help \
         _require-env _require-pair-stacks _require-fullstack-stack
 
 # ---------------------------------------------------------------
@@ -42,6 +42,21 @@ infra-down:
 
 logs:
 	docker compose logs -f
+
+# ---------------------------------------------------------------
+# Contract: compile the TypeSpec source into the canonical artifacts
+#   specs/openapi.yaml  (OpenAPI 3.1, REST)
+#   specs/schemas/*.json (JSON Schema, shared payloads incl. WS events)
+# Pure codegen — needs no infra or .env.
+#
+# `contract` (local) installs/updates deps with `npm install`.
+# `contract-compile` only compiles — CI runs `npm ci` first, then this.
+# ---------------------------------------------------------------
+contract:
+	cd specs/contract && npm install --no-audit --no-fund --silent && npx tsp compile .
+
+contract-compile:
+	cd specs/contract && npx tsp compile .
 
 # ---------------------------------------------------------------
 # Pair: any frontend + any backend
@@ -174,6 +189,7 @@ help:
 	@echo "  make fullstack STACK=nextjs             Run a standalone fullstack implementation"
 	@echo "  make lint BACK=spring                   Lint a backend (or FRONT= / STACK=)"
 	@echo "  make test BACK=spring                   Test a backend (or FRONT= / STACK=)"
+	@echo "  make contract                           Compile TypeSpec → specs/openapi.yaml + schemas/"
 	@echo "  make logs                               Tail infra container logs"
 	@echo ""
 	@echo "Available backends:"
