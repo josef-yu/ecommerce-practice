@@ -44,10 +44,11 @@ Add a domain by creating `<domain>.tsp` with `namespace Ecommerce;` and importin
 ## Building
 
 ```bash
-make contract        # npm install + tsp compile  → regenerates openapi.yaml + schemas/
+make contract        # npm install + tsp compile --warn-as-error → regenerates openapi.yaml + schemas/
+make contract-fmt    # format the .tsp source (writes)
 ```
 
-Needs Node only; no infra or `.env`. Output is deterministic, so re-running with an unchanged source produces no diff.
+Needs **Node 22+** (TypeSpec's `tsp format` uses `node:fs/promises` glob); no infra or `.env`. Compilation uses `--warn-as-error`, so any compiler warning fails the build. Output is deterministic, so re-running with an unchanged source produces no diff.
 
 ## Why TypeSpec
 
@@ -61,8 +62,9 @@ Needs Node only; no infra or `.env`. Output is deterministic, so re-running with
 The contract is the source of truth; each side is tested for **conformance to it** — never against each other.
 
 ### Repo-level (the `contract` CI job)
-- `make contract` then `git diff --exit-code specs/openapi.yaml specs/schemas` — the committed artifacts must match the `.tsp`. A drifted artifact (or a `.tsp` change without recompiling) fails CI.
-- A successful `tsp compile` guarantees the emitted OpenAPI/JSON Schema are structurally valid.
+- **Format** — `tsp format --check` (`make contract-fmt-check`); run `make contract-fmt` to fix.
+- **Compile** — `tsp compile --warn-as-error` (`make contract-compile`); errors and warnings both fail. A successful compile guarantees the emitted OpenAPI/JSON Schema are structurally valid.
+- **Drift** — `git status --porcelain specs/openapi.yaml specs/schemas` must be empty; the committed artifacts must match the `.tsp`. A drifted artifact (or a `.tsp` change without recompiling), or a new-but-uncommitted schema, fails CI.
 
 ### Backend (its `make test`)
 1. **Serves the contract** — `GET /api/v1/openapi.json` returns a document equal to `specs/openapi.yaml` (serve the committed file; do not auto-generate a divergent one).

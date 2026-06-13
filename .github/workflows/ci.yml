@@ -44,7 +44,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # TypeSpec 1.13's `tsp format` imports glob from node:fs/promises (Node 22+).
+          node-version: "22"
           cache: npm
           cache-dependency-path: specs/contract/package-lock.json
       - name: Install contract deps
@@ -165,7 +166,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: matrix.runtime == 'node'
         with:
-          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+          node-version: ${{ matrix.version != '' && matrix.version || '22' }}
       - name: Install Poetry (default Python package manager)
         if: matrix.runtime == 'python'
         run: pipx install poetry
@@ -230,7 +231,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: matrix.runtime == 'node'
         with:
-          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+          node-version: ${{ matrix.version != '' && matrix.version || '22' }}
       - name: Install Poetry (default Python package manager)
         if: matrix.runtime == 'python'
         run: pipx install poetry
@@ -295,7 +296,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.version != '' && matrix.version || '20' }}
+          node-version: ${{ matrix.version != '' && matrix.version || '22' }}
 
       - name: Prepare env
         run: cp .env.example .env

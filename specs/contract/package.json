@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Canonical API contract authored in TypeSpec; emits OpenAPI 3.1 (REST) and JSON Schema (shared payloads).",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsp compile .",
     "watch": "tsp compile . --watch"
